@@ -444,9 +444,7 @@ def evalMismatches(outward_, inward_):
     return np.matrix([dLogR, dLogL, dLogP, dLogT])
     
 def checkTolerance(diff, tolerance):
-    if abs(diff) < tolerance:
-        return True
-    return False
+    return abs(diff) < tolerance
 
 def withinTolerance(mismatches, rtol_):
     for i in range(1,4):
@@ -494,7 +492,7 @@ def genMatrix(inR_, inL_, outP_, outT_, logR_, logL_, logP_, logT_):
 
 def fullOptimise(m0_, m1_, frac_, core_, surf_, rtol_, zeta_):
     i = 1
-    maxI = 15
+    maxI = 1
     print(i)
     
     initR = surf_.r
@@ -522,8 +520,6 @@ def fullOptimise(m0_, m1_, frac_, core_, surf_, rtol_, zeta_):
         if i > 1:
             if not checkBetterMismatch(oldMismatches, currentMismatch):
                 print("---------THINGS ARE GETTING WORSE-----------")
-                #break
-            #break
         oldMismatches = currentMismatch
         
         if withinTolerance(currentMismatch, rtol_):
@@ -534,8 +530,10 @@ def fullOptimise(m0_, m1_, frac_, core_, surf_, rtol_, zeta_):
         inR = genInwardSol(m1_, frac_, perterbElem(surf_, zeta_, "r"), rtol_)
         inL = genInwardSol(m1_, frac_, perterbElem(surf_, zeta_, "l"), rtol_)
         
+        
         outP = genOutwardSol(m0_, m1_, frac_, perterbElem(core_, zeta_, "p"), rtol_)
         outT = genOutwardSol(m0_, m1_, frac_, perterbElem(core_, zeta_, "t"), rtol_)
+        
         
         # Get the mismatches with the perturbed solutions (top of the partials)
         misInR = evalMismatches(stateOut, inR)
@@ -556,10 +554,10 @@ def fullOptimise(m0_, m1_, frac_, core_, surf_, rtol_, zeta_):
         deltaMatrix = evalMismatches(stateOut, stateIn).T
         solutionMatrix = -bigMatrix.I * deltaMatrix
         # Now we use the Newton-Rhapson method to update our boundary conditions
-        surf_.r = surf_.r * (1 + getAlpha(solutionMatrix[0]) * solutionMatrix[0])[0,0]
-        surf_.l = surf_.l * (1 + getAlpha(solutionMatrix[1]) * solutionMatrix[1])[0,0]
-        core_.p = core_.p * (1 + getAlpha(solutionMatrix[2]) * solutionMatrix[2])[0,0]
-        core_.t = core_.t * (1 + getAlpha(solutionMatrix[3]) * solutionMatrix[3])[0,0]
+        surf_.r = surf_.r * (1 + getAlpha(solutionMatrix[0,0]) * solutionMatrix[0,0])
+        surf_.l = surf_.l * (1 + getAlpha(solutionMatrix[1,0]) * solutionMatrix[1,0])
+        core_.p = core_.p * (1 + getAlpha(solutionMatrix[2,0]) * solutionMatrix[3,0])
+        core_.t = core_.t * (1 + getAlpha(solutionMatrix[3,0]) * solutionMatrix[3,0])
         
         rArray.append(surf_.r)
         lArray.append(surf_.l)
