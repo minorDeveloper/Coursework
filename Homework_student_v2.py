@@ -14,6 +14,7 @@ import matplotlib.pylab as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from dataclasses import dataclass
 import dataclasses
+plt.rcParams.update({'figure.max_open_warning': 0})
 plt.rcParams['lines.linewidth'] = 3
 plt.rcParams['axes.linewidth'] = 2
 plt.rcParams['xtick.direction'] = 'in'
@@ -418,17 +419,18 @@ def make_mplots_state(outward, inward):
     make_mplots(outward.r,outward.m,outward.p,outward.t,outward.l,inward.r,inward.m,inward.p,inward.t,inward.l)
     
 def ppSolution(sol_):
-    print("m: " + str(sol_.m[-1]))
-    print("r: " + str(sol_.r[-1]))
-    print("l: " + str(sol_.l[-1]))
-    print("p: " + str(sol_.p[-1]))
-    print("t: " + str(sol_.t[-1]))
+    print("    m: " + str(sol_.m[-1]))
+    print("    r: " + str(sol_.r[-1]))
+    print("    l: " + str(sol_.l[-1]))
+    print("    p: " + str(sol_.p[-1]))
+    print("    t: " + str(sol_.t[-1]))
     
 def ppMismatches(mm_):
-    print("dLogR: " + str(mm_[0,0]))
-    print("dLogL: " + str(mm_[0,1]))
-    print("dLogP: " + str(mm_[0,2]))
-    print("dLogT: " + str(mm_[0,3]))
+    print("    dLogR: " + str(mm_[0,0]))
+    print("    dLogL: " + str(mm_[0,1]))
+    print("    dLogP: " + str(mm_[0,2]))
+    print("    dLogT: " + str(mm_[0,3]))
+    
     
 def checkBetterMismatch(old_, new_):
     for i in range(1,4):
@@ -460,7 +462,7 @@ def setAbundances(X_, Y_, XC_):
     Z = 1-X-Y
     
 def getAlpha(delta):
-    return min(0.01, 0.15/abs(delta))    
+    return min(0.001, 0.15/abs(delta))    
     
 def stateToSol(state_):
     return Solution(state_.t, state_.y[0,:], state_.y[1,:], state_.y[2,:], state_.y[3,:])
@@ -477,14 +479,8 @@ def perterbElem(boundary_, zeta_, vary_):
     newBoundary = dataclasses.replace(boundary_)
     setattr(newBoundary, vary_, getattr(boundary_, vary_) * (1.0 + zeta_))
     return newBoundary
-    #setattr(boundary_, vary_, getattr(boundary_, vary_) * (1.0 + zeta_))
-    #return boundary_
 
 def genMatrix(inR_, inL_, outP_, outT_, logR_, logL_, logP_, logT_):
-    #return np.matrix([[inR_/logR_,  inR_/logL_,  inR_/logP_,  inR_/logT_], 
-    #                  [inL_/logR_,  inL_/logL_,  inL_/logP_,  inL_/logT_], 
-    #                  [outP_/logR_, outP_/logL_, outP_/logP_, outP_/logT_], 
-    #                  [outT_/logR_, outT_/logL_, outT_/logP_, outT_/logT_]])
     return np.matrix([[inR_[0,0]/logR_, inL_[0,0]/logL_, outP_[0,0]/logP_, outT_[0,0]/logT_], 
                       [inR_[0,1]/logR_, inL_[0,1]/logL_, outP_[0,1]/logP_, outT_[0,1]/logT_], 
                       [inR_[0,2]/logR_, inL_[0,2]/logL_, outP_[0,2]/logP_, outT_[0,2]/logT_], 
@@ -492,7 +488,7 @@ def genMatrix(inR_, inL_, outP_, outT_, logR_, logL_, logP_, logT_):
 
 def fullOptimise(m0_, m1_, frac_, core_, surf_, rtol_, zeta_):
     i = 1
-    maxI = 1
+    maxI = 100
     print(i)
     
     initR = surf_.r
@@ -514,6 +510,13 @@ def fullOptimise(m0_, m1_, frac_, core_, surf_, rtol_, zeta_):
         # Generate the standard inward and outward solutions with unperturbed elements
         stateOut = genOutwardSol(m0_,m1_,frac_,core_,rtol_)
         stateIn = genInwardSol(m1_,frac_,surf_,rtol_)
+        
+        print()
+        print("    Outward solution")
+        ppSolution(stateOut)
+        print()
+        print("    Inward solution")
+        ppSolution(stateIn)
         
         currentMismatch = evalMismatches(stateOut, stateIn)
         print("    " + str(currentMismatch))
@@ -554,6 +557,8 @@ def fullOptimise(m0_, m1_, frac_, core_, surf_, rtol_, zeta_):
         deltaMatrix = evalMismatches(stateOut, stateIn).T
         solutionMatrix = -bigMatrix.I * deltaMatrix
         # Now we use the Newton-Rhapson method to update our boundary conditions
+        
+        print("delta: " + str(solutionMatrix[0,0]) + " min: " + str((1 + getAlpha(solutionMatrix[0,0]) * solutionMatrix[0,0])))
         surf_.r = surf_.r * (1 + getAlpha(solutionMatrix[0,0]) * solutionMatrix[0,0])
         surf_.l = surf_.l * (1 + getAlpha(solutionMatrix[1,0]) * solutionMatrix[1,0])
         core_.p = core_.p * (1 + getAlpha(solutionMatrix[2,0]) * solutionMatrix[3,0])
