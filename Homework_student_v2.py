@@ -117,12 +117,12 @@ def Euler(r,state):
   return [dmdr, dPdr, dLdr, dTdr]
 
 def Lagrange(m,state):
-  r, P, L, T = state
+  r, L, P, T = state
   drdm = 1.0/(4.0 * pi * r**2 * rho(P,T,X,Y))
   dPdm = -(grav * m) / (4.0 * pi * r**4)
   dLdm = eps(P,T,X,Y,XC)
   dTdm = -(grav * m) / (4.0 * pi * r**4) * T / P * nabla(P,T,L,m,X,Y)
-  return [drdm, dPdm, dLdm, dTdm]
+  return [drdm, dLdm, dPdm, dTdm]
 
 
 #============= plotting routines ================
@@ -344,16 +344,16 @@ T2 = state.y[3,:]
 @dataclass
 class Boundary:
     r: float
-    p: float
     l: float
+    p: float
     t: float
     
 @dataclass
 class Solution:
     m: np.ndarray
     r: np.ndarray
-    p: np.ndarray
     l: np.ndarray
+    p: np.ndarray
     t: np.ndarray
 
 
@@ -468,11 +468,11 @@ def stateToSol(state_):
     return Solution(state_.t, state_.y[0,:], state_.y[1,:], state_.y[2,:], state_.y[3,:])
     
 def genOutwardSol(m0_, m1_, frac_, core_, rtol_):
-    state_ = integrate.solve_ivp(Lagrange, (m0_, frac_ * m1_), [core_.r,core_.p,core_.l,core_.t], rtol=rtol_)
+    state_ = integrate.solve_ivp(Lagrange, (m0_, frac_ * m1_), [core_.r,core_.l,core_.p,core_.t], rtol=rtol_)
     return stateToSol(state_)
     
 def genInwardSol(m1_, frac_, surf_, rtol_):
-    state_ = integrate.solve_ivp(Lagrange, (m1_, frac_ * m1_), [surf_.r,surf_.p,surf_.l,surf_.t], rtol=rtol_)
+    state_ = integrate.solve_ivp(Lagrange, (m1_, frac_ * m1_), [surf_.r,surf_.l,surf_.p,surf_.t], rtol=rtol_)
     return stateToSol(state_)
 
 def perterbElem(boundary_, zeta_, vary_):
@@ -573,7 +573,7 @@ def fullOptimise(m0_, m1_, frac_, core_, surf_, rtol_, zeta_):
         print(i)
         
     plt.figure(figsize=(8,6))
-    plt.plot(iArray,[x / initR for x in rArray],lw=3)
+    plt.plot(iArray,rArray,lw=3)
     plt.xlabel("i",fontsize=20)
     plt.ylabel("r prediction",fontsize=20)
     plt.tick_params(axis='both', labelsize=15)
@@ -584,7 +584,7 @@ def fullOptimise(m0_, m1_, frac_, core_, surf_, rtol_, zeta_):
     plt.clf()
     
     plt.figure(figsize=(8,6))
-    plt.plot(iArray,[x / initL for x in lArray],lw=3)
+    plt.plot(iArray,lArray,lw=3)
     plt.xlabel("i",fontsize=20)
     plt.ylabel("l prediction",fontsize=20)
     plt.tick_params(axis='both', labelsize=15)
@@ -595,7 +595,7 @@ def fullOptimise(m0_, m1_, frac_, core_, surf_, rtol_, zeta_):
     plt.clf()
     
     plt.figure(figsize=(8,6))
-    plt.plot(iArray,[x / initP for x in pArray],lw=3)
+    plt.plot(iArray,pArray,lw=3)
     plt.xlabel("i",fontsize=20)
     plt.ylabel("p prediction",fontsize=20)
     plt.tick_params(axis='both', labelsize=15)
@@ -606,7 +606,7 @@ def fullOptimise(m0_, m1_, frac_, core_, surf_, rtol_, zeta_):
     plt.clf()
     
     plt.figure(figsize=(8,6))
-    plt.plot(iArray,[x / initT for x in tArray],lw=3)
+    plt.plot(iArray,tArray,lw=3)
     plt.xlabel("i",fontsize=20)
     plt.ylabel("t prediction",fontsize=20)
     plt.tick_params(axis='both', labelsize=15)
@@ -649,13 +649,13 @@ l1 = 1.118641 * Lsun
 
 zeta = 1E-5
 
-coreBoundary = Boundary(r0, p0, l0, t0)
-surfBoundary = Boundary(r1, p1, l1, t1)
+coreBoundary = Boundary(r0, l0, p0, t0)
+surfBoundary = Boundary(r1, l1, p1, t1)
 
 #=== Generate initial solutions ===#
-stateOut = genOutwardSol(m0,m1,0.5,coreBoundary,rtol)
-stateIn = genInwardSol(m1,0.5,surfBoundary,rtol)
-make_mplots_state(stateOut, stateIn)
+#stateOut = genOutwardSol(m0,m1,0.5,coreBoundary,rtol)
+#stateIn = genInwardSol(m1,0.5,surfBoundary,rtol)
+#make_mplots_state(stateOut, stateIn)
 
 
 print()
@@ -667,7 +667,7 @@ print()
 
 
 
-#fullOptimise(m0, m1, 0.5, coreBoundary, surfBoundary, rtol, zeta)
+fullOptimise(m0, m1, 0.5, coreBoundary, surfBoundary, rtol, zeta)
 
 print()
 print("--------------------------------------------------")
