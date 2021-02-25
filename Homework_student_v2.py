@@ -462,7 +462,7 @@ def setAbundances(X_, Y_, XC_):
     Z = 1-X-Y
     
 def getAlpha(delta):
-    return min(0.001, 0.15/abs(delta))    
+    return min(100, 0.15/abs(delta))    
     
 def stateToSol(state_):
     return Solution(state_.t, state_.y[0,:], state_.y[1,:], state_.y[2,:], state_.y[3,:])
@@ -491,10 +491,6 @@ def fullOptimise(m0_, m1_, frac_, core_, surf_, rtol_, zeta_):
     maxI = 100
     print(i)
     
-    initR = surf_.r
-    initL = surf_.l
-    initP = core_.p
-    initT = core_.t
     rArray = []
     lArray = []
     pArray = []
@@ -511,12 +507,6 @@ def fullOptimise(m0_, m1_, frac_, core_, surf_, rtol_, zeta_):
         stateOut = genOutwardSol(m0_,m1_,frac_,core_,rtol_)
         stateIn = genInwardSol(m1_,frac_,surf_,rtol_)
         
-        print()
-        print("    Outward solution")
-        ppSolution(stateOut)
-        print()
-        print("    Inward solution")
-        ppSolution(stateIn)
         
         currentMismatch = evalMismatches(stateOut, stateIn)
         print("    " + str(currentMismatch))
@@ -528,7 +518,6 @@ def fullOptimise(m0_, m1_, frac_, core_, surf_, rtol_, zeta_):
         if withinTolerance(currentMismatch, rtol_):
             print("    WITHIN TOLERANCE")
             break
-        print("    NOT WITHIN TOLERANCE")
         # These generate the inward and outward solutions with perturbed boundaries
         inR = genInwardSol(m1_, frac_, perterbElem(surf_, zeta_, "r"), rtol_)
         inL = genInwardSol(m1_, frac_, perterbElem(surf_, zeta_, "l"), rtol_)
@@ -546,28 +535,27 @@ def fullOptimise(m0_, m1_, frac_, core_, surf_, rtol_, zeta_):
         misOutT = evalMismatches(outT, stateIn)
         
         # Bottom of the partials!
-        logRzeta = np.log(surf_.r * zeta_)
-        logLzeta = np.log(surf_.l * zeta_)
+        logRzeta = np.log(1+zeta_)#np.log(surf_.r * zeta_)
+        logLzeta = np.log(1+zeta_)#np.log(surf_.l * zeta_)
         
-        logPzeta = np.log(core_.p * zeta_)
-        logTzeta = np.log(core_.t * zeta_)
+        logPzeta = np.log(1+zeta_)#np.log(core_.p * zeta_)
+        logTzeta = np.log(1+zeta_)#np.log(core_.t * zeta_)
         
         # Form the matrices and calculate the solution!
         bigMatrix = genMatrix(misInR, misInL, misOutP, misOutT, logRzeta, logLzeta, logPzeta, logTzeta)
-        deltaMatrix = evalMismatches(stateOut, stateIn).T
-        solutionMatrix = -bigMatrix.I * deltaMatrix
+        print(bigMatrix[0,0])
+        deltaMatrix = currentMismatch.T
+        solutionMatrix = -np.matmul(bigMatrix.I, deltaMatrix)
         # Now we use the Newton-Rhapson method to update our boundary conditions
-        
-        print("delta: " + str(solutionMatrix[0,0]) + " min: " + str((1 + getAlpha(solutionMatrix[0,0]) * solutionMatrix[0,0])))
         surf_.r = surf_.r * (1 + getAlpha(solutionMatrix[0,0]) * solutionMatrix[0,0])
         surf_.l = surf_.l * (1 + getAlpha(solutionMatrix[1,0]) * solutionMatrix[1,0])
         core_.p = core_.p * (1 + getAlpha(solutionMatrix[2,0]) * solutionMatrix[3,0])
         core_.t = core_.t * (1 + getAlpha(solutionMatrix[3,0]) * solutionMatrix[3,0])
         
-        rArray.append(surf_.r)
-        lArray.append(surf_.l)
-        pArray.append(core_.p)
-        tArray.append(core_.t)
+        rArray.append(currentMismatch[0,0])
+        lArray.append(currentMismatch[0,1])
+        pArray.append(currentMismatch[0,2])
+        tArray.append(currentMismatch[0,3])
         
         iArray.append(i)
         
