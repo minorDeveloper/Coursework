@@ -418,39 +418,20 @@ def make_mplots(r,m,P,T,L,r2,m2,P2,T2,L2):
 def make_mplots_state(outward, inward):
     make_mplots(outward.r,outward.m,outward.p,outward.t,outward.l,inward.r,inward.m,inward.p,inward.t,inward.l)
     
-def ppSolution(sol_):
-    print("    m: " + str(sol_.m[-1]))
-    print("    r: " + str(sol_.r[-1]))
-    print("    l: " + str(sol_.l[-1]))
-    print("    p: " + str(sol_.p[-1]))
-    print("    t: " + str(sol_.t[-1]))
-    
-def ppMismatches(mm_):
-    print("    dLogR: " + str(mm_[0,0]))
-    print("    dLogL: " + str(mm_[0,1]))
-    print("    dLogP: " + str(mm_[0,2]))
-    print("    dLogT: " + str(mm_[0,3]))
-    
-    
-def checkBetterMismatch(old_, new_):
-    for i in range(1,4):
-        if (abs(old_[0,i]) < abs(new_[0,i])):
-            return False
-    return True
     
 def evalMismatches(outward_, inward_):
     dLogR = np.log(outward_.r[-1]/inward_.r[-1])
     dLogL = np.log(outward_.l[-1]/inward_.l[-1])
     dLogP = np.log(outward_.p[-1]/inward_.p[-1])
     dLogT = np.log(outward_.t[-1]/inward_.t[-1])
-    return np.matrix([dLogR, dLogL, dLogP, dLogT])
+    return np.array([dLogR, dLogL, dLogP, dLogT])
     
 def checkTolerance(diff, tolerance):
     return abs(diff) < tolerance
 
 def withinTolerance(mismatches, rtol_):
     for i in range(1,4):
-        if not checkTolerance(mismatches[0,i], rtol_):
+        if not checkTolerance(mismatches[i], rtol_):
             return False 
     return True
 
@@ -462,7 +443,7 @@ def setAbundances(X_, Y_, XC_):
     Z = 1-X-Y
     
 def getAlpha(delta):
-    return min(100, 0.15/abs(delta))    
+    return min(1, 0.15/abs(delta))    
     
 def stateToSol(state_):
     return Solution(state_.t, state_.y[0,:], state_.y[1,:], state_.y[2,:], state_.y[3,:])
@@ -480,15 +461,9 @@ def perterbElem(boundary_, zeta_, vary_):
     setattr(newBoundary, vary_, getattr(boundary_, vary_) * (1.0 + zeta_))
     return newBoundary
 
-def genMatrix(inR_, inL_, outP_, outT_, logR_, logL_, logP_, logT_):
-    return np.matrix([[inR_[0,0]/logR_, inL_[0,0]/logL_, outP_[0,0]/logP_, outT_[0,0]/logT_], 
-                      [inR_[0,1]/logR_, inL_[0,1]/logL_, outP_[0,1]/logP_, outT_[0,1]/logT_], 
-                      [inR_[0,2]/logR_, inL_[0,2]/logL_, outP_[0,2]/logP_, outT_[0,2]/logT_], 
-                      [inR_[0,3]/logR_, inL_[0,3]/logL_, outP_[0,3]/logP_, outT_[0,3]/logT_]])
-
 def fullOptimise(m0_, m1_, frac_, core_, surf_, rtol_, zeta_):
     i = 1
-    maxI = 100
+    maxI = 30
     print(i)
     
     rArray = []
@@ -497,27 +472,17 @@ def fullOptimise(m0_, m1_, frac_, core_, surf_, rtol_, zeta_):
     tArray = []
     iArray = []
     
-    oldMismatches = 0
     stateOut = genOutwardSol(m0_,m1_,frac_,core_,rtol_)
     stateIn = genInwardSol(m1_,frac_,surf_,rtol_)
     make_mplots_state(stateOut, stateIn)
+    currentMismatch = evalMismatches(stateOut, stateIn)
     
-    while True and i < maxI + 1:
+    while not withinTolerance(currentMismatch, rtol_) and i <= maxI:
         # Generate the standard inward and outward solutions with unperturbed elements
         stateOut = genOutwardSol(m0_,m1_,frac_,core_,rtol_)
         stateIn = genInwardSol(m1_,frac_,surf_,rtol_)
         
         
-        currentMismatch = evalMismatches(stateOut, stateIn)
-        print("    " + str(currentMismatch))
-        if i > 1:
-            if not checkBetterMismatch(oldMismatches, currentMismatch):
-                print("---------THINGS ARE GETTING WORSE-----------")
-        oldMismatches = currentMismatch
-        
-        if withinTolerance(currentMismatch, rtol_):
-            print("    WITHIN TOLERANCE")
-            break
         # These generate the inward and outward solutions with perturbed boundaries
         inR = genInwardSol(m1_, frac_, perterbElem(surf_, zeta_, "r"), rtol_)
         inL = genInwardSol(m1_, frac_, perterbElem(surf_, zeta_, "l"), rtol_)
@@ -528,35 +493,37 @@ def fullOptimise(m0_, m1_, frac_, core_, surf_, rtol_, zeta_):
         
         
         # Get the mismatches with the perturbed solutions (top of the partials)
-        misInR = evalMismatches(stateOut, inR)
-        misInL = evalMismatches(stateOut, inL)
         
-        misOutP = evalMismatches(outP, stateIn)
-        misOutT = evalMismatches(outT, stateIn)
+        currentMismatch = evalMismatches(stateOut, stateIn)
+        print("    " + str(currentMismatch))
+        misInR = evalMismatches(stateOut, inR) - currentMismatch
+        misInL = evalMismatches(stateOut, inL) - currentMismatch
+        
+        misOutP = evalMismatches(outP, stateIn) - currentMismatch
+        misOutT = evalMismatches(outT, stateIn) - currentMismatch
         
         # Bottom of the partials!
-        logRzeta = np.log(1+zeta_)#np.log(surf_.r * zeta_)
-        logLzeta = np.log(1+zeta_)#np.log(surf_.l * zeta_)
-        
-        logPzeta = np.log(1+zeta_)#np.log(core_.p * zeta_)
-        logTzeta = np.log(1+zeta_)#np.log(core_.t * zeta_)
+        logXzeta = 1 / np.log(1 + zeta_)
         
         # Form the matrices and calculate the solution!
-        bigMatrix = genMatrix(misInR, misInL, misOutP, misOutT, logRzeta, logLzeta, logPzeta, logTzeta)
-        print(bigMatrix[0,0])
+        bigMatrix = np.mat([misInR * logXzeta,
+                            misInL * logXzeta,
+                            misOutP * logXzeta,
+                            misOutT * logXzeta]).T
+        
         deltaMatrix = currentMismatch.T
-        solutionMatrix = -np.matmul(bigMatrix.I, deltaMatrix)
+        solutionMatrix = -1 * np.matmul(bigMatrix.I, deltaMatrix)
+        
         # Now we use the Newton-Rhapson method to update our boundary conditions
-        surf_.r = surf_.r * (1 + getAlpha(solutionMatrix[0,0]) * solutionMatrix[0,0])
-        surf_.l = surf_.l * (1 + getAlpha(solutionMatrix[1,0]) * solutionMatrix[1,0])
-        core_.p = core_.p * (1 + getAlpha(solutionMatrix[2,0]) * solutionMatrix[3,0])
-        core_.t = core_.t * (1 + getAlpha(solutionMatrix[3,0]) * solutionMatrix[3,0])
+        surf_.r *= (1 + getAlpha(solutionMatrix[0,0]) * solutionMatrix[0,0])
+        surf_.l *= (1 + getAlpha(solutionMatrix[0,1]) * solutionMatrix[0,1])
+        core_.p *= (1 + getAlpha(solutionMatrix[0,2]) * solutionMatrix[0,2])
+        core_.t *= (1 + getAlpha(solutionMatrix[0,3]) * solutionMatrix[0,3])
         
-        rArray.append(currentMismatch[0,0])
-        lArray.append(currentMismatch[0,1])
-        pArray.append(currentMismatch[0,2])
-        tArray.append(currentMismatch[0,3])
-        
+        rArray.append(currentMismatch[0])
+        lArray.append(currentMismatch[1])
+        pArray.append(currentMismatch[2])
+        tArray.append(currentMismatch[3])
         iArray.append(i)
         
         # Update the values
