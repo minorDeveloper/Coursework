@@ -24,7 +24,7 @@ plt.rcParams['ytick.right'] = True
 plt.rcParams['xtick.major.size'] = plt.rcParams['ytick.major.size'] = 7
 plt.rcParams['xtick.minor.size'] = plt.rcParams['ytick.minor.size'] = 4
 plt.rcParams['xtick.major.width'] = plt.rcParams['ytick.major.width'] = 1.6
-pp = PdfPages('Homework3.pdf')
+pp = PdfPages('Plots.pdf')
 
 #============ nature constants (global) ==============
 cl      = 2.99792458E+08     # speed of light [m/s]
@@ -338,7 +338,6 @@ T2 = state.y[3,:]
 #                                                                                  #  
 #===================================================================================
 
-#***** Student defined code *****#
 
 # Data structure to contain the boundary conditions 
 #   (reduces the number of function parameters!)
@@ -357,8 +356,21 @@ class Solution:
     p: np.ndarray
     t: np.ndarray
 
+def plot_mAgainst(m, m2, yVar, yVar2, yDivisor, yText):
+    plt.figure(figsize=(8,6))
+    plt.plot(m/Msun,yVar/yDivisor,lw=3)
+    if (yVar2 is not None) and (m2 is not None): 
+        plt.plot(m2/Msun,yVar2/yDivisor,lw=3)
+    plt.ylabel(yText,fontsize=20)
+    plt.xlabel(r'$\mathrm{enclosed\ mass}\ \mathrm{[M_\odot]}$',fontsize=20)
+    plt.tick_params(axis='both', labelsize=15)
+    plt.tick_params('both', length=8, width=1.5, which='major')
+    plt.tick_params('both', length=5, width=1, which='minor')
+    plt.tight_layout()
+    plt.savefig(pp,format='pdf')
+    plt.clf()
 
-def make_mplots(r,m,P,T,L,r2,m2,P2,T2,L2):
+def make_mplots(r,m,P,T,L,r2,m2,P2,T2,L2, title, plotType):
     plt.figure(figsize=(8,6))
     plt.plot(m/Msun,r/Rsun,lw=3)
     if (r2 is not None) and (m2 is not None): 
@@ -415,9 +427,8 @@ def make_mplots(r,m,P,T,L,r2,m2,P2,T2,L2):
     plt.clf()
     
 # Conversion from my new format to the original plotting function call (takes a state rather than list of arrays)
-def make_mplots_state(outward, inward):
-    make_mplots(outward.r,outward.m,outward.p,outward.t,outward.l,inward.r,inward.m,inward.p,inward.t,inward.l)
-    
+def make_mplots_state(outward, inward, title, plotType):
+    make_mplots(outward.r,outward.m,outward.p,outward.t,outward.l,inward.r,inward.m,inward.p,inward.t,inward.l, title, plotType)
     
 def evalMismatches(outward_, inward_):
     dLogR = np.log(outward_.r[-1]/inward_.r[-1])
@@ -448,8 +459,8 @@ def getAlpha(delta):
 def stateToSol(state_):
     return Solution(state_.t, state_.y[0,:], state_.y[1,:], state_.y[2,:], state_.y[3,:])
     
-def genOutwardSol(m0_, m1_, frac_, core_, rtol_):
-    state_ = integrate.solve_ivp(Lagrange, (m0_, frac_ * m1_), [core_.r,core_.l,core_.p,core_.t], rtol=rtol_)
+def integrateSol(m0_, m1_, frac_, bound_, rtol_):
+    state_ = integrate.solve_ivp(Lagrange, (m0_, frac_ * m1_), [bound_.r,bound_.l,bound_.p,bound_.t], rtol=rtol_)
     return stateToSol(state_)
     
 def genInwardSol(m1_, frac_, surf_, rtol_):
@@ -461,10 +472,9 @@ def perterbElem(boundary_, zeta_, vary_):
     setattr(newBoundary, vary_, getattr(boundary_, vary_) * (1.0 + zeta_))
     return newBoundary
 
-def fullOptimise(m0_, m1_, frac_, core_, surf_, rtol_, zeta_):
+def fullOptimise(m0_, m1_, frac_, core_, surf_, rtol_, zeta_, stol_):
     i = 1
     maxI = 30
-    print(i)
     
     rArray = []
     lArray = []
@@ -472,47 +482,44 @@ def fullOptimise(m0_, m1_, frac_, core_, surf_, rtol_, zeta_):
     tArray = []
     iArray = []
     
-    stateOut = genOutwardSol(m0_,m1_,frac_,core_,rtol_)
-    stateIn = genInwardSol(m1_,frac_,surf_,rtol_)
-    make_mplots_state(stateOut, stateIn)
-    currentMismatch = evalMismatches(stateOut, stateIn)
+    stateO = integrateSol(m0_, m1_,frac_,core_,rtol_)
+    stateI = integrateSol(m1_, m1_,frac_,surf_,rtol_)
+    make_mplots_state(stateO, stateI, "1.1 Msun star","prior")
+    currentMismatch = evalMismatches(stateO, stateI)
     
-    while not withinTolerance(currentMismatch, rtol_) and i <= maxI:
+    while not withinTolerance(currentMismatch, stol_) and i <= maxI:
+        print(str(i) + ": mismatches in R, L, P, and T at 0.5Mstar")
         # Generate the standard inward and outward solutions with unperturbed elements
-        stateOut = genOutwardSol(m0_,m1_,frac_,core_,rtol_)
-        stateIn = genInwardSol(m1_,frac_,surf_,rtol_)
-        
+        stateO = integrateSol(m0_,m1_,frac_,core_,rtol_)
+        stateI = integrateSol(m1_, m1_,frac_,surf_,rtol_)
         
         # These generate the inward and outward solutions with perturbed boundaries
-        inR = genInwardSol(m1_, frac_, perterbElem(surf_, zeta_, "r"), rtol_)
-        inL = genInwardSol(m1_, frac_, perterbElem(surf_, zeta_, "l"), rtol_)
-        
-        
-        outP = genOutwardSol(m0_, m1_, frac_, perterbElem(core_, zeta_, "p"), rtol_)
-        outT = genOutwardSol(m0_, m1_, frac_, perterbElem(core_, zeta_, "t"), rtol_)
-        
+        inR = integrateSol(m1_, m1_, frac_, perterbElem(surf_, zeta_, "r"), rtol_)
+        inL = integrateSol(m1_, m1_, frac_, perterbElem(surf_, zeta_, "l"), rtol_)
+
+        outP = integrateSol(m0_, m1_, frac_, perterbElem(core_, zeta_, "p"), rtol_)
+        outT = integrateSol(m0_, m1_, frac_, perterbElem(core_, zeta_, "t"), rtol_)
         
         # Get the mismatches with the perturbed solutions (top of the partials)
-        
-        currentMismatch = evalMismatches(stateOut, stateIn)
+        currentMismatch = evalMismatches(stateO, stateI)
         print("    " + str(currentMismatch))
-        misInR = evalMismatches(stateOut, inR) - currentMismatch
-        misInL = evalMismatches(stateOut, inL) - currentMismatch
         
-        misOutP = evalMismatches(outP, stateIn) - currentMismatch
-        misOutT = evalMismatches(outT, stateIn) - currentMismatch
+        misIR = evalMismatches(stateO, inR) - currentMismatch
+        misIL = evalMismatches(stateO, inL) - currentMismatch
+        
+        misOP = evalMismatches(outP, stateI) - currentMismatch
+        misOT = evalMismatches(outT, stateI) - currentMismatch
         
         # Bottom of the partials!
-        logXzeta = 1 / np.log(1 + zeta_)
+        logX = 1 / np.log(1 + zeta_)
         
         # Form the matrices and calculate the solution!
-        bigMatrix = np.mat([misInR * logXzeta,
-                            misInL * logXzeta,
-                            misOutP * logXzeta,
-                            misOutT * logXzeta]).T
-        
+        partialMatrix = np.mat([misIR * logX,
+                                misIL * logX,
+                                misOP * logX,
+                                misOT * logX]).T
         deltaMatrix = currentMismatch.T
-        solutionMatrix = -1 * np.matmul(bigMatrix.I, deltaMatrix)
+        solutionMatrix = -1 * np.matmul(partialMatrix.I, deltaMatrix)
         
         # Now we use the Newton-Rhapson method to update our boundary conditions
         surf_.r *= (1 + getAlpha(solutionMatrix[0,0]) * solutionMatrix[0,0])
@@ -528,7 +535,6 @@ def fullOptimise(m0_, m1_, frac_, core_, surf_, rtol_, zeta_):
         
         # Update the values
         i = i + 1
-        print(i)
         
     plt.figure(figsize=(8,6))
     plt.plot(iArray,rArray,lw=3)
@@ -575,12 +581,8 @@ def fullOptimise(m0_, m1_, frac_, core_, surf_, rtol_, zeta_):
     plt.clf()
     
     
-    make_mplots_state(stateOut, stateIn)
+    make_mplots_state(stateO, stateI, "1.1 Msun star","post fitting")
     
-    
-    
-def genMatrixSol():
-    print("Unimplemented")
 
 #***** Start of main code *****#
 
@@ -606,26 +608,17 @@ r1 = 1.0135 * Rsun
 l1 = 1.118641 * Lsun
 
 zeta = 1E-5
+stol = 1E-12
 
 coreBoundary = Boundary(r0, l0, p0, t0)
 surfBoundary = Boundary(r1, l1, p1, t1)
-
-#=== Generate initial solutions ===#
-#stateOut = genOutwardSol(m0,m1,0.5,coreBoundary,rtol)
-#stateIn = genInwardSol(m1,0.5,surfBoundary,rtol)
-#make_mplots_state(stateOut, stateIn)
-
 
 print()
 print("--------------------------------------------------")
 print()
 
 
-# Me playing and testing code (down here so it can't affect production stuff!)
-
-
-
-fullOptimise(m0, m1, 0.5, coreBoundary, surfBoundary, rtol, zeta)
+fullOptimise(m0, m1, 0.5, coreBoundary, surfBoundary, rtol, zeta, stol)
 
 print()
 print("--------------------------------------------------")
