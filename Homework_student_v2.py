@@ -356,27 +356,16 @@ class Solution:
     p: np.ndarray
     t: np.ndarray
 
-def plot_mAgainst(m, m2, yVar, yVar2, yDivisor, yText):
-    plt.figure(figsize=(8,6))
-    plt.plot(m/Msun,yVar/yDivisor,lw=3)
-    if (yVar2 is not None) and (m2 is not None): 
-        plt.plot(m2/Msun,yVar2/yDivisor,lw=3)
-    plt.ylabel(yText,fontsize=20)
-    plt.xlabel(r'$\mathrm{enclosed\ mass}\ \mathrm{[M_\odot]}$',fontsize=20)
-    plt.tick_params(axis='both', labelsize=15)
-    plt.tick_params('both', length=8, width=1.5, which='major')
-    plt.tick_params('both', length=5, width=1, which='minor')
-    plt.tight_layout()
-    plt.savefig(pp,format='pdf')
-    plt.clf()
 
 def make_mplots(r,m,P,T,L,r2,m2,P2,T2,L2, title, plotType):
+    
     plt.figure(figsize=(8,6))
     plt.plot(m/Msun,r/Rsun,lw=3)
     if (r2 is not None) and (m2 is not None): 
         plt.plot(m2/Msun,r2/Rsun,lw=3)
     plt.ylabel(r'$\mathrm{radius}\ \mathrm{[R_\odot]}$',fontsize=20)
     plt.xlabel(r'$\mathrm{enclosed\ mass}\ \mathrm{[M_\odot]}$',fontsize=20)
+    plt.title(title + ": radius against mass (" + plotType + ")", fontsize=15)
     plt.tick_params(axis='both', labelsize=15)
     plt.tick_params('both', length=8, width=1.5, which='major')
     plt.tick_params('both', length=5, width=1, which='minor')
@@ -393,6 +382,7 @@ def make_mplots(r,m,P,T,L,r2,m2,P2,T2,L2, title, plotType):
     plt.ylim(ymin=1.E-6*pmax,ymax=2*pmax)
     plt.xlabel(r'$\mathrm{enclosed\ mass}\ \mathrm{[M_\odot]}$',fontsize=20)
     plt.ylabel(r'$\mathrm{pressure}\ \mathrm{[Pa]}$',fontsize=20)
+    plt.title(title + ": pressure against mass (" + plotType + ")", fontsize=15)
     plt.tick_params(axis='both', labelsize=15)
     plt.tick_params('both', length=8, width=1.5, which='major')
     plt.tick_params('both', length=5, width=1, which='minor')
@@ -406,6 +396,7 @@ def make_mplots(r,m,P,T,L,r2,m2,P2,T2,L2, title, plotType):
         plt.plot(m2/Msun,L2/Lsun,lw=3)
     plt.xlabel(r'$\mathrm{enclosed\ mass}\ \mathrm{[M_\odot]}$',fontsize=20)
     plt.ylabel(r'$\mathrm{luminosity}\ \mathrm{[L_\odot]}$',fontsize=20)
+    plt.title(title + ": luminosity against mass (" + plotType + ")", fontsize=15)
     plt.tick_params(axis='both', labelsize=15)
     plt.tick_params('both', length=8, width=1.5, which='major')
     plt.tick_params('both', length=5, width=1, which='minor')
@@ -419,6 +410,7 @@ def make_mplots(r,m,P,T,L,r2,m2,P2,T2,L2, title, plotType):
         plt.plot(m2/Msun,T2/1.E+6,lw=3)
     plt.xlabel(r'$\mathrm{enclosed\ mass}\ \mathrm{[M_\odot]}$',fontsize=20)
     plt.ylabel(r'$\mathrm{temperature}\ \mathrm{[MK]}$',fontsize=20)
+    plt.title(title + ": temperature against mass (" + plotType + ")", fontsize=15)
     plt.tick_params(axis='both', labelsize=15)
     plt.tick_params('both', length=8, width=1.5, which='major')
     plt.tick_params('both', length=5, width=1, which='minor')
@@ -484,7 +476,7 @@ def fullOptimise(m0_, m1_, frac_, core_, surf_, rtol_, zeta_, stol_):
     
     stateO = integrateSol(m0_, m1_,frac_,core_,rtol_)
     stateI = integrateSol(m1_, m1_,frac_,surf_,rtol_)
-    make_mplots_state(stateO, stateI, "1.1 Msun star","prior")
+    make_mplots_state(stateO, stateI, "1.1 Msun star","prior to fitting")
     currentMismatch = evalMismatches(stateO, stateI)
     
     while not withinTolerance(currentMismatch, stol_) and i <= maxI:
@@ -536,6 +528,8 @@ def fullOptimise(m0_, m1_, frac_, core_, surf_, rtol_, zeta_, stol_):
         # Update the values
         i = i + 1
         
+    print("Mismatches within tolerance")
+    
     plt.figure(figsize=(8,6))
     plt.plot(iArray,rArray,lw=3)
     plt.xlabel("i",fontsize=20)
